@@ -3,7 +3,7 @@ require 'open3'
 
 SECRETS ||= {}
 
-secrets_files = (ENV['SECRETS_FILES'] || 'config/secrets.ejson').split(',')
+secrets_files = (ENV['SECRETS_FILES'] || '/usr/local/cloudshaper/secrets.ejson,config/secrets.ejson').split(',')
 secrets_files.each do |secrets_file|
   if File.exist?(secrets_file)
     if secrets_file.end_with?('.ejson')

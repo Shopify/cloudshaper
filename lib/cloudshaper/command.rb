@@ -3,6 +3,12 @@ require 'cloudshaper/secrets'
 module Cloudshaper
   # Wraps terraform command execution
   class Command
+
+    # Default to looking up on path
+    def self.terraform_path=(path)
+      @@terraform_path = path
+    end
+
     attr_accessor :command
 
     def initialize(stack, command)
@@ -53,7 +59,7 @@ module Cloudshaper
         end
       end
 
-      "terraform #{cmd}#{" #{options}" unless options.empty?} #{@stack.root}"
+      "#{@@terraform_path} #{cmd}#{" #{options}" unless options.empty?} #{@stack.root}"
     end
   end
 end
