@@ -1,29 +1,21 @@
 require 'json'
 require 'open3'
 
-# Load and provide access to secrets required by terraform providers
-class SecretHash < Hash
-  class SecretNotFound < Exception; end
+module Cloudshaper
+  SECRETS_FILES = '/usr/local/cloudshaper/secrets.ejson,config/secrets.ejson'
+  secrets_files = (ENV['SECRETS_FILES'] || SECRETS_FILES).split(',')
 
-  def initialize
-    super { |_secrets, key| fail SecretNotFound, "Secret `#{key}` not found" }
-  end
-end
-
-if ENV['TERRAFORM_ENV'] == 'test'
-  SECRETS ||= {
-    aws: {
-      access_key_id: 'foo',
-      secret_access_key: 'bar'
-    }
-  }
-else
-  SECRETS ||= begin
-    secrets_file = File.expand_path(ENV['CONFIG_PATH'] || 'config/secrets.json')
+  SECRETS = secrets_files.inject({}) do |secrets, secrets_file|
     if File.exist?(secrets_file)
-      JSON.parse(File.read(secrets_file), symbolize_names: true, object_class: SecretHash)
-    else
-      {}
+      if secrets_file.end_with?('.ejson')
+        secrets_blob = `ejson decrypt #{secrets_file}`
+      elsif secrets_file.end_with('.json')
+        secrets_blob = File.read(secrets_file)
+      else
+        fail "I don't understand how to get secrets from #{secrets_file}"
+      end
+      secrets.merge!(JSON.parse(secrets_blob)['cloudshaper'] || {})
     end
-  end
+    secrets
+  end.freeze
 end

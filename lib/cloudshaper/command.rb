@@ -3,6 +3,11 @@ require 'cloudshaper/secrets'
 module Cloudshaper
   # Wraps terraform command execution
   class Command
+
+    def self.terraform_bin=(path)
+      @@terraform_bin = path
+    end
+
     attr_accessor :command
 
     def initialize(stack, command)
@@ -10,18 +15,24 @@ module Cloudshaper
       @command = options_for(command)
     end
 
-    # fixme - make these shell safe
     def env
-      vars = {}
-      @stack.variables.each { |k, v| vars["TF_VAR_#{k}"] = v }
-      SECRETS.each do |_provider, secrets|
-        if secrets.is_a?(Hash)
-          secrets.each do |k, v|
-            vars[k.to_s] = v
+      environment = {}
+      SECRETS.each do |type, secrets|
+        case type
+        when 'providers'
+          secrets.each do |provider, vars|
+            vars.each do |k, v|
+              environment[k.to_s] = v
+            end
+          end
+        when 'variables'
+          secrets.each do |key, value|
+            @stack.variables[key.to_s] = v
           end
         end
       end
-      vars
+      @stack.variables.each { |k, v| environment["TF_VAR_#{k.to_s}"] = v.to_s }
+      environment
     end
 
     def execute
@@ -47,7 +58,7 @@ module Cloudshaper
         end
       end
 
-      "terraform #{cmd} #{options} #{@stack.root}"
+      "#{@@terraform_bin} #{cmd}#{" #{options}" unless options.empty?} #{@stack.root}"
     end
   end
 end

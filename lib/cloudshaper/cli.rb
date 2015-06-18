@@ -4,6 +4,7 @@ require 'cloudshaper'
 module Cloudshaper
   class CLI < Thor
     class_option 'remote_state', type: 'boolean'
+    class_option 'terraform_bin', type: "string", default: 'terraform'
 
     desc 'list', 'List all available stacks'
     def list
@@ -14,48 +15,48 @@ module Cloudshaper
 
     desc 'show NAME', 'Show details about a stack by name'
     def show(name)
-      stack = load_stack(name, options)
+      stack = load_stack(name)
       puts stack
     end
 
     desc 'plan NAME', 'Show pending changes for a stack'
     def plan(name)
-      stack = load_stack(name, options)
+      stack = load_stack(name)
       remote_config(name) if remote_state?
       stack.plan
     end
 
     desc 'apply NAME', 'Apply all pending stack changes'
     def apply(name)
-      stack = load_stack(name, options)
+      stack = load_stack(name)
       stack.apply
       push(name) if remote_state?
     end
 
     desc 'destroy NAME', 'Destroy a stack'
     def destroy(name)
-      stack = load_stack(name, options)
+      stack = load_stack(name)
       stack.destroy
       push(name) if remote_state?
     end
 
     desc 'pull NAME', 'Pull stack state from remote location'
     def pull(name)
-      stack = load_stack(name, options, false)
+      stack = load_stack(name, pull: false)
       remote_config(name)
       stack.pull
     end
 
     desc 'push NAME', 'Push stack state from remote location'
     def push(name)
-      stack = load_stack(name, options)
+      stack = load_stack(name)
       remote_config(name)
       stack.push
     end
 
     desc 'remote_config NAME', 'Sets up remote config for a stack'
     def remote_config(name)
-      stack = load_stack(name, options, false)
+      stack = load_stack(name, pull: false)
       stack.remote_config
     end
 
@@ -77,7 +78,8 @@ module Cloudshaper
 
     private
 
-    def load_stack(stack, _options, pull = true)
+    def load_stack(stack, pull: true)
+      Cloudshaper::Command.terraform_bin = options['terraform_bin']
       Cloudshaper::Stacks.load
       pull(stack) if remote_state? && pull
       stack = Cloudshaper::Stacks.stacks[stack]
