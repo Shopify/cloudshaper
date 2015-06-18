@@ -13,6 +13,6 @@ secrets_files.each do |secrets_file|
     else
       fail "I don't understand how to get secrets from #{secrets_file}"
     end
-    SECRETS.merge!(JSON.parse(secrets))
+    SECRETS.merge!(JSON.parse(secrets)['cloudshaper'] || {})
   end
 end

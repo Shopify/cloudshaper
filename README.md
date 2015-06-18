@@ -24,15 +24,34 @@ To use this gem, you will need to:
 
 ### Secrets
 
-Create a file at config/secrets.json that contains secrets needed for you providers.
+Cloudshaper uses ejson to manage secrets. It may load secrets directly from ejson, or from locally decrypted json.
 
-Specify the secrets as a JSON hash like so:
+By default it will look for secrets at:
+
+* /usr/local/cloudshaper/secrets.ejson
+* config/secrets.ejson
+
+But you may override this with the SECRETS\_FILES environment variable, which is a comma separated list of paths.
+
+All secrets in cloudshaper are passed as environment variables. There are two types of secrets in cloudshaper:
+
+* Provider secrets - these will be passed directly as environment variables, and may be used by providers that accept them
+* Variable secrets - these will be used to replace terraform secrets, by adding them as environment variables with ```TF_VAR_``` prepended.
+
+The secrets should be created in a nested has like so:
 
 ```
 {
-  "aws": {
-    "AWS_ACCESS_KEY_ID": "ACCESS_KEY",
-    "AWS_SECRET_ACCESS_KEY": "SECRET_KEY"
+  "cloudshaper": {
+    "providers": {
+      "aws": {
+        "AWS_ACCESS_KEY_ID": "ACCESS_KEY",
+        "AWS_SECRET_ACCESS_KEY": "SECRET_KEY"
+      }
+    },
+    "variables": {
+        "some_variable": "SOME_SECRET_VALUE
+    }
   }
 }
 ```
