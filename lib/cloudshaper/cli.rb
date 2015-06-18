@@ -4,7 +4,7 @@ require 'cloudshaper'
 module Cloudshaper
   class CLI < Thor
     class_option 'remote_state', type: 'boolean'
-    class_option 'terraform_path', type: "string", default: 'terraform'
+    class_option 'terraform_bin', type: "string", default: 'terraform'
 
     desc 'list', 'List all available stacks'
     def list
@@ -42,7 +42,7 @@ module Cloudshaper
 
     desc 'pull NAME', 'Pull stack state from remote location'
     def pull(name)
-      stack = load_stack(name, false)
+      stack = load_stack(name, pull: false)
       remote_config(name)
       stack.pull
     end
@@ -56,7 +56,7 @@ module Cloudshaper
 
     desc 'remote_config NAME', 'Sets up remote config for a stack'
     def remote_config(name)
-      stack = load_stack(name, false)
+      stack = load_stack(name, pull: false)
       stack.remote_config
     end
 
@@ -78,8 +78,8 @@ module Cloudshaper
 
     private
 
-    def load_stack(stack, pull = true)
-      Cloudshaper::Command.terraform_path = options['terraform_path']
+    def load_stack(stack, pull: true)
+      Cloudshaper::Command.terraform_bin = options['terraform_bin']
       Cloudshaper::Stacks.load
       pull(stack) if remote_state? && pull
       stack = Cloudshaper::Stacks.stacks[stack]

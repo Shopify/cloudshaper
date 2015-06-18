@@ -4,9 +4,8 @@ module Cloudshaper
   # Wraps terraform command execution
   class Command
 
-    # Default to looking up on path
-    def self.terraform_path=(path)
-      @@terraform_path = path
+    def self.terraform_bin=(path)
+      @@terraform_bin = path
     end
 
     attr_accessor :command
@@ -32,7 +31,7 @@ module Cloudshaper
           end
         end
       end
-      @stack.variables.each { |k, v| environment["TF_VAR_#{k.to_s}"] = v }
+      @stack.variables.each { |k, v| environment["TF_VAR_#{k.to_s}"] = v.to_s }
       environment
     end
 
@@ -59,7 +58,7 @@ module Cloudshaper
         end
       end
 
-      "#{@@terraform_path} #{cmd}#{" #{options}" unless options.empty?} #{@stack.root}"
+      "#{@@terraform_bin} #{cmd}#{" #{options}" unless options.empty?} #{@stack.root}"
     end
   end
 end
