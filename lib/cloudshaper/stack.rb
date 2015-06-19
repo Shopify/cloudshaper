@@ -1,14 +1,14 @@
-require 'erb'
-require 'ostruct'
+require 'fileutils'
 
 require 'cloudshaper/stacks'
 require 'cloudshaper/command'
 require 'cloudshaper/remote'
+require 'cloudshaper/template'
 
 module Cloudshaper
   # Wrapper to instantiate a stack from a yaml definition
   class Stack
-    TEMPLATE_SOURCE = 'git@github.com/Shopify/terraform-modules//templates'
+    DATA_DIR = 'data'
 
     class MalformedConfig < Exception; end
     class << self
@@ -20,27 +20,19 @@ module Cloudshaper
       end
     end
 
-    class Template < OpenStruct
-      def render(template)
-        ERB.new(template).result(binding)
-      end
-    end
-
-    attr_reader :name, :description, :template,
-                :stack_id, :remote, :variables, :body
+    attr_reader :name, :description, :data_dir,
+                :stack_id, :remote, :variables
 
     def initialize(stack_config)
       @name = stack_config.fetch('name')
       @uuid = stack_config.fetch('uuid')
       @remote = stack_config['remote'] || {}
       @description = stack_config['description'] || ''
-
-      @template = stack_config.fetch('template')
       @variables = stack_config['variables'] || {}
-      @config = stack_config['config'] || {}
       @variables['cloudshaper_stack_id'] = @stack_id
       @stack_id = "cloudshaper_#{@name}_#{@uuid}"
-      @body = render
+      @data_dir = File.join((ENV['DATA_DIR'] || DATA_DIR), @stack_id)
+      render_template(stack_config)
     end
 
     def apply
@@ -82,22 +74,14 @@ Description: #{@description}
 Stack Directory: #{@stack_dir}
       eos
     end
-
   private
 
-    # Renders a remote template with local config variables
-    def render
-      template = File.read(fetch)
-      stack_template = Template.new(@config)
-      stack_template.render(template)
-    end
-
-    # Fetch template from template source
-    def fetch
-      # source = ENV['TEMPLATE_SOURCE'] || TEMPLATE_SOURCE
-      # uri, folder = source.split('//')
-      # clone uri to tmpfolder
-      # template_path = File.join(tmpfolder, folder, @template)
+    def render_template(stack_config)
+      template_name = stack_config.fetch('template')
+      template_config = stack_config['config'] || {}
+      template_data = Template.new(template_config).render(template_name)
+      FileUtils.mkdir_p(@data_dir)
+      File.open(File.join(@data_dir, "#{template_name}.tf"), 'w') { |f| f.write(template_data) }
     end
   end
 end
