@@ -1,3 +1,6 @@
+require 'erb'
+require 'ostruct'
+
 require 'cloudshaper/stacks'
 require 'cloudshaper/command'
 require 'cloudshaper/remote'
@@ -5,6 +8,8 @@ require 'cloudshaper/remote'
 module Cloudshaper
   # Wrapper to instantiate a stack from a yaml definition
   class Stack
+    TEMPLATE_SOURCE = 'git@github.com/Shopify/terraform-modules//templates'
+
     class MalformedConfig < Exception; end
     class << self
       def load(config)
@@ -15,21 +20,27 @@ module Cloudshaper
       end
     end
 
-    attr_reader :name, :description, :root,
-                :stack_dir, :stack_id, :remote,
-                :variables
+    class Template < OpenStruct
+      def render(template)
+        ERB.new(template).result(binding)
+      end
+    end
 
-    def initialize(config)
-      @name = config.fetch('name')
-      @uuid = config.fetch('uuid')
-      @remote = config['remote'] || {}
-      @description = config['description'] || ''
+    attr_reader :name, :description, :template,
+                :stack_id, :remote, :variables, :body
 
-      @root = config.fetch('root')
-      @stack_id = "cloudshaper_#{@name}_#{@uuid}"
-      @stack_dir = File.join(Stacks.dir, @stack_id)
-      @variables = config['variables'] || {}
+    def initialize(stack_config)
+      @name = stack_config.fetch('name')
+      @uuid = stack_config.fetch('uuid')
+      @remote = stack_config['remote'] || {}
+      @description = stack_config['description'] || ''
+
+      @template = stack_config.fetch('template')
+      @variables = stack_config['variables'] || {}
+      @config = stack_config['config'] || {}
       @variables['cloudshaper_stack_id'] = @stack_id
+      @stack_id = "cloudshaper_#{@name}_#{@uuid}"
+      @body = render
     end
 
     def apply
@@ -70,6 +81,23 @@ Name: #{@name}
 Description: #{@description}
 Stack Directory: #{@stack_dir}
       eos
+    end
+
+  private
+
+    # Renders a remote template with local config variables
+    def render
+      template = File.read(fetch)
+      stack_template = Template.new(@config)
+      stack_template.render(template)
+    end
+
+    # Fetch template from template source
+    def fetch
+      # source = ENV['TEMPLATE_SOURCE'] || TEMPLATE_SOURCE
+      # uri, folder = source.split('//')
+      # clone uri to tmpfolder
+      # template_path = File.join(tmpfolder, folder, @template)
     end
   end
 end
