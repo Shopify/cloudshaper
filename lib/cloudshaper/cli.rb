@@ -60,9 +60,17 @@ module Cloudshaper
       stack.remote_config
     end
 
-    desc 'init', 'Initialize stacks.yml if it does not exist'
+    option :name, required: true, aliases: '-n'
+    option :template, required: true, aliases: '-t'
+    option :description,  aliases: '-d'
+    option :environment, aliases: '-e'
+    desc 'init', 'Initialize a cloudshaper stack'
     def init
-      Cloudshaper::Stacks.init
+      environment = options[:environment] || 'production'
+      desc = options[:description] || 'No description given'
+      name = options[:name]
+      template = options[:template]
+      Cloudshaper::Stacks.init(environment, desc, name, template)
       puts "Created stacks.yml, you're ready to configure your stack"
     end
 

@@ -78,8 +78,8 @@ Stack Directory: #{@stack_dir}
 
     def render_template(stack_config)
       template_name = stack_config.fetch('template')
-      template_config = stack_config['config'] || {}
-      template_data = Template.new(template_config).render(template_name)
+      template_config = stack_config
+      template_data = Template.render(template_config, template_name)
       FileUtils.mkdir_p(@data_dir)
       File.open(File.join(@data_dir, "#{template_name}.tf"), 'w') { |f| f.write(template_data) }
     end

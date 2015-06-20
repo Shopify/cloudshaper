@@ -6,49 +6,74 @@ require 'cloudshaper/stack'
 module Cloudshaper
   # Singleton to keep track of stack templates
   class Stacks
+    STACK_DIR = Dir.pwd
     class MalformedConfig < StandardError; end
     class << self
       attr_reader :stacks
 
       def load
-        config = ENV['STACK_CONFIG'] || 'stacks.yml'
-        fail 'stacks.yml must exist in root directory, or specify STACK_CONFIG pointing to stacks.yml' unless File.exist?(config)
-        stack_specs = YAML.load(File.read(config))
-        fail MalformedConfig, 'Stacks must be an array' unless stack_specs.key?('stacks') && stack_specs['stacks'].is_a?(Array)
-        common = stack_specs['common'] || {}
-        stack_specs['stacks'].each do |stack_spec|
-          stack = Stack.load(stack_spec.merge(common))
+        stacks = Dir["#{stacks_dir}/.cloudshaper.*.yml"]
+        stacks.each do |stack_config|
+          spec = YAML.load(File.read(stack_config))
+          stack = Stack.load(spec)
           @stacks[stack.name] = stack
         end
       end
 
-      def init
-        config = ENV['STACK_CONFIG'] || 'stacks.yml'
-        fail "stacks.yaml already exists at #{File.expand_path(config)}" if File.exist?(config)
+      def init(environment, desc, name, template)
+        config = File.join(stacks_dir, ".cloudshaper.#{environment}.yml")
+        fail "stack already exists at #{File.expand_path(config)}" if File.exist?(config)
         File.open(config, 'w') do |f|
-          f.write(YAML.dump(base_config))
+          f.write(YAML.dump(base_stack_config(desc, name, template)))
         end
+        shipit_config(name, environment)
       end
 
-      def base_config
+      def base_stack_config(description, name, template)
         {
-          'common' => {},
-          'stacks' => [base_stack_config]
-        }
-      end
-
-      def base_stack_config
-        {
-          'name' => 'SET_NAME',
+          'name' => name,
           'uuid' => SecureRandom.uuid,
-          'description' => 'SET_A_DESCRIPTION',
-          'root' => 'SET_A_TEMPLATE',
-          'variables' => {}
+          'description' => description,
+          'template' => template,
+          'remote' => {
+            's3' => {
+              'bucket' => ENV['CLOUDSHAPER_BUCKET'] || 'quartermaster-terraform',
+              'region' => ENV['CLOUDSHAPER_BUCKET_REGION'] || 'us-east-1',
+            }
+          },
+          'environment' => {},
+          'variables' => {},
+          'procs' => {},
+          'addons' => {},
         }
+      end
+
+      def shipit_config(name, environment)
+        data = <<-eos
+deploy:
+  override:
+    - echo 'noop'
+tasks:
+  plan:
+    action: "Show Plan"
+    description: "Shows all planned changes to the infrastructure stack"
+    steps:
+      - cloudshaper plan #{name} --remote-state
+  apply:
+    action: "Apply"
+    description: "Applies any changes to bring the stack to the desired state"
+    steps:
+      - cloudshaper apply #{name} --remote-state
+        eos
+        File.open(File.join(stacks_dir,"shipit.infra_#{environment}.yml"), 'w') { |f| f.write(data)}
       end
 
       def reset!
         @stacks ||= {}
+      end
+
+      def stacks_dir
+        ENV['STACK_DIR'] || STACK_DIR
       end
 
       def dir

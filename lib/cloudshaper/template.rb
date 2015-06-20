@@ -1,15 +1,26 @@
-require 'erb'
-require 'ostruct'
+require 'erubis'
 
 module Cloudshaper
 
-  TEMPLATE_SOURCE = 'git@github.com:Shopify/terraform-modules//templates?ref=template_test'
+  #TEMPLATE_SOURCE = 'git@github.com:Shopify/terraform-modules//templates?ref=template_test'
+  TEMPLATE_SOURCE = 'file:///home/dale.hamel/workspace/shopify/terraform-modules/templates'
   CACHE_DIR = '.cloudshaper_cache'
 
-  class Template < OpenStruct
-    def render(template)
-      template_data = File.read(refresh(template))
-      rendered = ERB.new(template_data).result(binding)
+  class Template
+    def self.render(config, template)
+      if source[:protocol] == 'git@github.com'
+        template_dir = refresh(template)
+      elsif source[:protocol] == 'file'
+        template_dir = source[:uri]
+      else
+        fail "#{source[:protocol]} does not use a recognized protocol"
+      end
+
+      template_file = File.join(template_dir, "#{template}.tf.erb")
+      fail "#{template_file} doesn't exist" unless File.exist? template_file
+
+      template_data = File.read(template_file)
+      Erubis::Eruby.new(template_data).result(config: config)
     end
 
     def self.cache
@@ -18,37 +29,42 @@ module Cloudshaper
 
     def self.source
       full_uri = (ENV['TEMPLATE_SOURCE'] || TEMPLATE_SOURCE)
-      folder = full_uri.match(/\/\/(.*)\?+/).captures.first
-      uri = full_uri.match(/(.*)\/\/+|\?+/).captures.first
-      ref_check = full_uri.match(/\?ref=(.*)/)
+      protocol = full_uri.match(/^(.*):/).captures.first
+      if protocol == 'file'
+        uri = full_uri.gsub('file://','')
+      else
+        uri = full_uri.match(/^(.*)\/\/\w+|\w\?+/).captures.first
+      end
+      folder_check = full_uri.match(/\w\/\/(.*)\w\?+/)
+      ref_check = full_uri.match(/\w\?ref=(.*)\/*/)
       ref = (ref_check.captures.first if ref_check) || 'master'
-      {uri: uri, folder: folder, ref: ref}
+      folder = (folder_check.captures.first if folder_check) || ''
+      {protocol: protocol, uri: uri, folder: folder, ref: ref}
     end
   private
 
     # Fetch template from template source
-    def refresh(template)
-      git(clone(Template.source[:uri])) unless Dir.exist? Template.cache
+    def self.refresh
+      git(clone(source[:uri])) unless Dir.exist? cache
       git(fetch)
-      git(checkout(Template.source[:ref]))
-      template_path = File.join(Template.cache, Template.source[:folder], "#{template}.tf.erb")
-      fail "#{template} doesn't exist at #{template_path}" unless File.exist?(template_path)
-      template_path
+      git(checkout(source[:ref]))
+      template_dir = File.join(cache, source[:folder])
+      template_dir
     end
 
-    def checkout(ref)
-      "-C #{Template.cache} checkout origin/#{ref}"
+    def self.checkout(ref)
+      "-C #{cache} checkout origin/#{ref}"
     end
 
-    def clone(uri)
-      "clone #{uri} #{Template.cache}"
+    def self.clone(uri)
+      "clone #{uri} #{cache}"
     end
 
-    def fetch
-      "-C #{Template.cache} fetch "
+    def self.fetch
+      "-C #{cache} fetch "
     end
 
-    def git(command)
+    def self.git(command)
       puts command
       Process.waitpid(spawn("git #{command}"))
       puts $?.exitstatus
