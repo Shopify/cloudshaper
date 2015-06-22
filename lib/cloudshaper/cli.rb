@@ -2,9 +2,61 @@ require 'thor'
 require 'cloudshaper'
 
 module Cloudshaper
+  module StackHelper
+    def load_stack(stack, pull: true)
+      Cloudshaper::Command.terraform_bin = options['terraform_bin']
+      Cloudshaper::Stacks.load
+      pull(stack) if remote_state? && pull
+      stack = Cloudshaper::Stacks.stacks[stack]
+      stack.get
+      stack
+    end
+
+  private
+
+    def remote_state?
+      ret = options['remote_state'] == true
+    end
+
+  end
+
+  class Addon < Thor
+    include Cloudshaper::StackHelper
+
+    desc 'add ADDON STACK', 'Adds an addon from a stack'
+    def add(addon, stack)
+      stack = load_stack(stack)
+      stack.add_addon(addon)
+    end
+
+    desc 'rm ADDON STACK', 'Removes an addon from a stack'
+    def rm(addon, stack)
+      stack = load_stack(stack)
+      stack.rm_addon(addon)
+    end
+
+    desc 'upgrade ADDON STACK', 'Upgrades the tier for an addon for a stack'
+    def upgrade(addon, stack)
+      stack = load_stack(stack)
+      stack.upgrade(addon)
+    end
+
+    desc 'downgrade ADDON STACK', 'Downgrades the tier for an addon for a stack'
+    def downgrade(addon, stack)
+      stack = load_stack(stack)
+      stack.downgrade(addon)
+    end
+
+  end
+
   class CLI < Thor
+    include Cloudshaper::StackHelper
+
     class_option 'remote_state', type: 'boolean'
     class_option 'terraform_bin', type: "string", default: 'terraform'
+
+    desc 'addon SUBCOMMAND', 'Manage addons'
+    subcommand "addon", Addon
 
     desc 'list', 'List all available stacks'
     def list
@@ -70,8 +122,7 @@ module Cloudshaper
       desc = options[:description] || 'No description given'
       name = options[:name]
       template = options[:template]
-      Cloudshaper::Stacks.init(environment, desc, name, template)
-      puts "Created stacks.yml, you're ready to configure your stack"
+      Cloudshaper::Config::Stack.init(environment, desc, name, template)
     end
 
     desc 'uuid', "Generate a UUID for your stacks, so they don't clobber each other"
@@ -82,21 +133,6 @@ module Cloudshaper
     desc 'version', 'Prints the version of cloudshaper'
     def version
       puts Cloudshaper::VERSION
-    end
-
-    private
-
-    def load_stack(stack, pull: true)
-      Cloudshaper::Command.terraform_bin = options['terraform_bin']
-      Cloudshaper::Stacks.load
-      pull(stack) if remote_state? && pull
-      stack = Cloudshaper::Stacks.stacks[stack]
-      stack.get
-      stack
-    end
-
-    def remote_state?
-      ret = options['remote_state'] == true
     end
   end
 end

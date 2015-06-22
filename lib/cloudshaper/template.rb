@@ -1,4 +1,4 @@
-require 'erubis'
+require 'erb'
 
 module Cloudshaper
 
@@ -20,7 +20,7 @@ module Cloudshaper
       fail "#{template_file} doesn't exist" unless File.exist? template_file
 
       template_data = File.read(template_file)
-      Erubis::Eruby.new(template_data).result(config: config)
+      ERB.new(template_data).result(config.get_binding)
     end
 
     def self.cache

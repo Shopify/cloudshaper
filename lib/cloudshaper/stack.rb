@@ -10,29 +10,15 @@ module Cloudshaper
   class Stack
     DATA_DIR = 'data'
 
-    class MalformedConfig < Exception; end
-    class << self
-      def load(config)
-        fail MalformedConfig, "Configuration malformed at #{config}" unless config.is_a?(Hash)
-        fail MalformedConfig, "A name must be specified for the stack #{config}" unless config.key?('name')
-        fail MalformedConfig, 'You must specify a uuid. Get one from rake uuid and add it to the config' unless config.key?('uuid')
-        new(config)
-      end
-    end
+    attr_reader :name, :data_dir, :config, :stack_id, :variables
 
-    attr_reader :name, :description, :data_dir,
-                :stack_id, :remote, :variables
-
-    def initialize(stack_config)
-      @name = stack_config.fetch('name')
-      @uuid = stack_config.fetch('uuid')
-      @remote = stack_config['remote'] || {}
-      @description = stack_config['description'] || ''
-      @variables = stack_config['variables'] || {}
+    def initialize(config)
+      @config = config
+      @stack_id = "cloudshaper_#{@config.name}_#{@config.uuid}"
+      @variables = @config.variables
       @variables['cloudshaper_stack_id'] = @stack_id
-      @stack_id = "cloudshaper_#{@name}_#{@uuid}"
       @data_dir = File.join((ENV['DATA_DIR'] || DATA_DIR), @stack_id)
-      render_template(stack_config)
+      render_template(@config)
     end
 
     def apply
@@ -67,18 +53,39 @@ module Cloudshaper
       Remote.new(self, :config).execute
     end
 
+    def add_addon(addon)
+      @config.add_addon(addon)
+      @config.save
+    end
+
+    def rm_addon(addon)
+      @config.rm_addon(addon)
+      @config.save
+    end
+
+    def upgrade(addon)
+      @config.addon(addon).upgrade
+      @config.save
+    end
+
+    def downgrade(addon)
+      @config.addon(addon).downgrade
+      @config.save
+    end
+
     def to_s
       <<-eos
-Name: #{@name}
-Description: #{@description}
-Stack Directory: #{@stack_dir}
+Name: #{@config.name}
+Description: #{@config.description}
+Stack Directory: #{@data_dir}
       eos
     end
+
   private
 
-    def render_template(stack_config)
-      template_name = stack_config.fetch('template')
-      template_config = stack_config
+    def render_template(config)
+      template_name = config.template
+      template_config = config
       template_data = Template.render(template_config, template_name)
       FileUtils.mkdir_p(@data_dir)
       File.open(File.join(@data_dir, "#{template_name}.tf"), 'w') { |f| f.write(template_data) }
