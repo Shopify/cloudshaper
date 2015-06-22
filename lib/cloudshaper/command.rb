@@ -37,7 +37,7 @@ module Cloudshaper
 
     def execute
       Process.waitpid(spawn(env, @command))
-      fail 'Command failed' unless $CHILD_STATUS.to_i == 0
+      fail 'Command failed' unless $?.exitstatus == 0
     end
 
     protected
@@ -58,7 +58,7 @@ module Cloudshaper
         end
       end
 
-      "#{@@terraform_bin} #{cmd}#{" #{options}" unless options.empty?} #{@stack.root}"
+      "#{@@terraform_bin} #{cmd}#{" #{options}" unless options.empty?} #{@stack.data_dir}"
     end
   end
 end

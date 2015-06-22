@@ -12,7 +12,7 @@ module Cloudshaper
 
       def config_opts_s3
         config = "-backend-config='key=#{@stack.stack_id}' "
-        config += @stack.remote['s3'].map { |k, v| "-backend-config='#{k}=#{v}'" }.join(' ')
+        config += @stack.config.remote['s3'].map { |k, v| "-backend-config='#{k}=#{v}'" }.join(' ')
         config
       end
     end

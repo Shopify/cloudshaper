@@ -1,35 +1,24 @@
+require 'fileutils'
+
 require 'cloudshaper/stacks'
 require 'cloudshaper/command'
 require 'cloudshaper/remote'
+require 'cloudshaper/template'
 
 module Cloudshaper
   # Wrapper to instantiate a stack from a yaml definition
   class Stack
-    class MalformedConfig < Exception; end
-    class << self
-      def load(config)
-        fail MalformedConfig, "Configuration malformed at #{config}" unless config.is_a?(Hash)
-        fail MalformedConfig, "A name must be specified for the stack #{config}" unless config.key?('name')
-        fail MalformedConfig, 'You must specify a uuid. Get one from rake uuid and add it to the config' unless config.key?('uuid')
-        new(config)
-      end
-    end
+    DATA_DIR = 'data'
 
-    attr_reader :name, :description, :root,
-                :stack_dir, :stack_id, :remote,
-                :variables
+    attr_reader :name, :data_dir, :config, :stack_id, :variables
 
     def initialize(config)
-      @name = config.fetch('name')
-      @uuid = config.fetch('uuid')
-      @remote = config['remote'] || {}
-      @description = config['description'] || ''
-
-      @root = config.fetch('root')
-      @stack_id = "cloudshaper_#{@name}_#{@uuid}"
-      @stack_dir = File.join(Stacks.dir, @stack_id)
-      @variables = config['variables'] || {}
+      @config = config
+      @stack_id = "cloudshaper_#{@config.name}_#{@config.uuid}"
+      @variables = @config.variables
       @variables['cloudshaper_stack_id'] = @stack_id
+      @data_dir = File.join((ENV['DATA_DIR'] || DATA_DIR), @stack_id)
+      render_template(@config)
     end
 
     def apply
@@ -64,12 +53,58 @@ module Cloudshaper
       Remote.new(self, :config).execute
     end
 
+    def add_formation(name)
+      @config.add_formation(name)
+      @config.save
+    end
+
+    def rm_formation(name)
+      @config.rm_formation(name)
+      @config.save
+    end
+
+    def resize(name, size)
+      @config.resize_formation(name, size)
+      @config.save
+    end
+
+
+    def add_addon(addon)
+      @config.add_addon(addon)
+      @config.save
+    end
+
+    def rm_addon(addon)
+      @config.rm_addon(addon)
+      @config.save
+    end
+
+    def upgrade(addon)
+      @config.addon(addon).upgrade
+      @config.save
+    end
+
+    def downgrade(addon)
+      @config.addon(addon).downgrade
+      @config.save
+    end
+
     def to_s
       <<-eos
-Name: #{@name}
-Description: #{@description}
-Stack Directory: #{@stack_dir}
+Name: #{@config.name}
+Description: #{@config.description}
+Stack Directory: #{@data_dir}
       eos
+    end
+
+  private
+
+    def render_template(config)
+      template_name = config.template
+      template_config = config
+      template_data = Template.render(template_config, template_name)
+      FileUtils.mkdir_p(@data_dir)
+      File.open(File.join(@data_dir, "#{template_name}.tf"), 'w') { |f| f.write(template_data) }
     end
   end
 end
