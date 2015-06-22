@@ -53,6 +53,22 @@ module Cloudshaper
       Remote.new(self, :config).execute
     end
 
+    def add_formation(name)
+      @config.add_formation(name)
+      @config.save
+    end
+
+    def rm_formation(name)
+      @config.rm_formation(name)
+      @config.save
+    end
+
+    def resize(name, size)
+      @config.resize_formation(name, size)
+      @config.save
+    end
+
+
     def add_addon(addon)
       @config.add_addon(addon)
       @config.save

@@ -20,10 +20,34 @@ module Cloudshaper
 
   end
 
+  class Formation < Thor
+    include Cloudshaper::StackHelper
+
+    desc 'add FORMATION STACK', 'Creates a formation for the stack'
+    def add(formation, stack)
+      stack = load_stack(stack)
+      stack.add_formation(formation)
+    end
+
+    desc 'rm FORMATION STACK', 'Removes a formation from the stack'
+    def rm(formation, stack)
+      stack = load_stack(stack)
+      stack.rm_formation(formation)
+    end
+
+    desc 'resize FORMATION STACK COUNT', 'Changes the size of a formation for a stack'
+    def resize(formation, stack, count)
+      stack = load_stack(stack)
+      stack.resize(formation, count)
+    end
+
+  end
+
+
   class Addon < Thor
     include Cloudshaper::StackHelper
 
-    desc 'add ADDON STACK', 'Adds an addon from a stack'
+    desc 'add ADDON STACK', 'Adds an addon to a stack'
     def add(addon, stack)
       stack = load_stack(stack)
       stack.add_addon(addon)
@@ -57,6 +81,9 @@ module Cloudshaper
 
     desc 'addon SUBCOMMAND', 'Manage addons'
     subcommand "addon", Addon
+
+    desc 'formation SUBCOMMAND', 'Manage formations'
+    subcommand "formation", Formation
 
     desc 'list', 'List all available stacks'
     def list

@@ -38,7 +38,14 @@ module Cloudshaper
 
     end
 
-    class Proc < TemplateConfig
+    class Formation < TemplateConfig
+      def initialize(name)
+        @type = name
+      end
+
+      def resize(size)
+        @quantity = size
+      end
     end
 
     class Stack
@@ -54,9 +61,9 @@ module Cloudshaper
         @environment = config.fetch('environment')
         @variables = config.fetch('variables')
 
-        @procs = config.fetch('procs').inject({}) do |procs, proc_configs|
-          proc_configs.each do |name, config|
-            procs[name] = ::Proc.new(config)
+        @formations = config.fetch('formations').inject({}) do |formations, formation_configs|
+          formation_configs.each do |name, config|
+            formations[name] = ::Formation.new(config)
           end
         end
 
@@ -77,6 +84,18 @@ module Cloudshaper
 
       def rm_addon(addon)
         @addons.delete(addon)
+      end
+
+      def resize_formation(name, size)
+        @formations[name].resize(size)
+      end
+
+      def add_formation(name)
+        @formations[name] = Cloudshaper::Config::Formation.new(name)
+      end
+
+      def rm_formation(name)
+        @formations.delete(name)
       end
 
       def get_binding
@@ -112,7 +131,7 @@ module Cloudshaper
           },
           'environment' => {},
           'variables' => {},
-          'procs' => {},
+          'formations' => {},
           'addons' => {},
         }
       end
